@@ -1,8 +1,7 @@
-// Header file of median problem
-#include <stdlib.h>
-
 #ifndef __HEAP_H__
 #define __HEAP_H__
+
+#include <stdlib.h>
 
 struct Less {
     template <typename T>
