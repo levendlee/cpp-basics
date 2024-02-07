@@ -1,4 +1,4 @@
-CFLAGS = -ggdb -Wall -Wextra -std=c++11 -O0
+CFLAGS = -ggdb -Wall -Wextra -std=c++17 -O0
 # You can use any standard version between C++11 or C++20 you like
 
 all: test 

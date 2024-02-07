@@ -9,7 +9,10 @@ struct ConsolListEntryUpdater
     static void insert(ConsolList &cl, const Offer &o);
 };
 
-// No concurrent updaters.
+// Preconditions get from interviewer:
+// 1. No concurrent usage of updaters.
+// 2. `onPurchaseBegin` and `onPurchaseEnd` will always be called to guard
+//    the usage of `onMatch` and `onReentry`.
 class ConsolListPurchaseUpdater
 {
     ConsolList *cl = nullptr;
@@ -23,5 +26,5 @@ public:
     void onPurchaseEnd();
 
 private:
-    unorderded_map<int, PublicOffer> bufferedOffers_;
+    unordered_map<int, PublicOffer> bufferedOffers_;
 };

@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "ConsolList.h"
 #include "ConsolListUpdaters.h"
 
@@ -23,10 +25,16 @@ void ConsolListEntryUpdater::insert(ConsolList &cl, const Offer &_newOffer)
 {
     // This function is invoked once when a farmer makes a new offer.
     PublicOffer publicOffer(_newOffer);
+    publicOffer.displayedQty = min(_newOffer.displayedQtyMax, _newOffer.qty);
     auto iter = lower_bound(cl.begin(), cl.end(), publicOffer);
     // TODO: This runs super slow.
     // insert before.
     cl.insert(iter, publicOffer);
+
+#ifdef DEBUG
+    cout << "insert!";
+    print(cl);
+#endif
 }
 
 void ConsolListPurchaseUpdater::onPurchaseBegin()
@@ -66,6 +74,16 @@ void ConsolListPurchaseUpdater::onMatch(const Offer &offer)
     assert(ConsolListIter->oid == offer.oid);
     ConsolListIter->displayedQty = offer.displayedQty;
     // Keep it open as zeros to be cleaned up later.
+
+#ifdef DEBUG
+    cout << "onMatch!";
+    print(*cl);
+    cout << "buffer:\n";
+    for (auto &iter : bufferedOffers_)
+    {
+        print(iter.second);
+    }
+#endif
 }
 
 void ConsolListPurchaseUpdater::onReentry(const Offer &icebergOffer)
@@ -77,17 +95,28 @@ void ConsolListPurchaseUpdater::onReentry(const Offer &icebergOffer)
     // 1) Buffers the icebergeOffer and leaves the consolidatedList unchanged.
     PublicOffer publicOffer(icebergOffer);
     bufferedOffers_[icebergOffer.oid.refNum] = publicOffer;
+
+#ifdef DEBUG
+    cout << "onReentry!";
+    print(*cl);
+    cout << "buffer:\n";
+    for (auto &iter : bufferedOffers_)
+    {
+        print(iter.second);
+    }
+#endif
 }
 
 void ConsolListPurchaseUpdater::onPurchaseEnd()
 {
     // This function is called when a purchase, that bought at least one apple, is finished.
     // The ConsolListPurchaseUpdater is destroyed after this call.
-    
+
     // 1) Sorts and the buffered offers and stores them.
     set<PublicOffer> bufferedOffersTree;
-    for (auto& [refNum, offer] : bufferedOffers_) {
-        bufferedOffersTree.insert(move(offer));
+    for (auto &[refNum, offer] : bufferedOffers_)
+    {
+        bufferedOffersTree.insert(std::move(offer));
     }
 
     // 2) Reversely construct the list from the end.
@@ -99,21 +128,47 @@ void ConsolListPurchaseUpdater::onPurchaseEnd()
     // before the write pointer, since the iceberg offer can only move offers
     // upwards, and the eliminated offers can only read offers upwards as well.
 
+#ifdef DEBUG
+    cout << "onPurchaseEnd!\n";
+    cout << cl->size() << "#\n";
+    cout << bufferedOffers_.size() << "$\n";
+#endif
+
     // Reverse iterator to iterate from the best offers to the worst.
     auto bufferedOffersTreeRIter = bufferedOffersTree.rbegin();
 
     const int n = cl->size();
     int readIndex = n - 1, writeIndex = n - 1;
     while (readIndex >= 0 ||
-           bufferedOffersTreeRIter != bufferedOffersTree.rend()) {
+           bufferedOffersTreeRIter != bufferedOffersTree.rend())
+    {
         if ((readIndex < 0) ||
             (bufferedOffersTreeRIter != bufferedOffersTree.rend() &&
-             cl->at(readIndex) < *bufferedOffersTreeRIter)) {
+             cl->at(readIndex) < *bufferedOffersTreeRIter))
+        {
             // The offer in the buffer is a better offer;
             // TODO: Figure out why cannot use move here.
             (*cl)[writeIndex] = *bufferedOffersTreeRIter;
             --writeIndex;
             ++bufferedOffersTreeRIter;
         }
+        else
+        {
+            if (cl->at(readIndex).displayedQty > 0)
+            {
+                // TODO: Figure out why cannot use move here.
+                (*cl)[writeIndex] = cl->at(readIndex);
+                --writeIndex;
+            }
+            --readIndex;
+        }
     }
+
+    readIndex = writeIndex + 1;
+    writeIndex = 0;
+    while (readIndex < n)
+    {
+        (*cl)[writeIndex++] = (*cl)[readIndex++];
+    }
+    cl->resize(writeIndex);
 }
